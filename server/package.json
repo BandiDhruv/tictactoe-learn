@@ -17,7 +17,8 @@
     "express": "^4.21.1",
     "mongoose": "^8.8.1",
     "socket.io": "^4.8.1",
-    "ts-dotenv": "^0.9.1"
+    "ts-dotenv": "^0.9.1",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

@@ -1,20 +1,47 @@
-'use client'
-
 import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from 'lucide-react'
+import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 
 export default function TicTacToeGame() {
+  const navigate = useNavigate();
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false)
   const [gameCode, setGameCode] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
-  const handleJoinGame = () => {
-    // Here you would implement the logic to join the game with the entered code
-    console.log('Joining game with code:', gameCode)
-    setIsJoinModalOpen(false)
-    setGameCode('')
+  const handleJoinGame = async () => {
+    try {
+      if (!gameCode.trim()) {
+        throw new Error('Please enter a valid game code')
+      }
+      // Implement your join game logic here
+      setIsJoinModalOpen(false)
+      setGameCode('')
+      // navigate(`/game/${gameCode}`) // Uncomment this line when join game functionality is implemented
+    } catch (error:any) {
+      setErrorMessage(error.message || 'An error occurred while joining the game')
+      setIsErrorModalOpen(true)
+    }
+  }
+
+  const handleCreateGame = async () => {
+    try {
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_IP}/createRoom`)
+      if (res.status === 200) {
+        navigate(`/game/${res.data.roomId}`)
+      } else {
+        throw new Error('Error creating room')
+      }
+    } catch (error:any) {
+      setErrorMessage(error.message || 'An error occurred while creating the game')
+      setIsErrorModalOpen(true)
+    }
   }
 
   return (
@@ -34,6 +61,7 @@ export default function TicTacToeGame() {
             Join A Game
           </Button>
           <Button 
+            onClick={handleCreateGame}
             variant="outline"
             className="w-full max-w-xs"
           >
@@ -66,6 +94,24 @@ export default function TicTacToeGame() {
           </div>
           <DialogFooter>
             <Button type="submit" onClick={handleJoinGame}>Join Game</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isErrorModalOpen} onOpenChange={setIsErrorModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+          </DialogHeader>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Oops! Something went wrong</AlertTitle>
+            <AlertDescription>
+              {errorMessage}
+            </AlertDescription>
+          </Alert>
+          <DialogFooter>
+            <Button type="button" onClick={() => setIsErrorModalOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
