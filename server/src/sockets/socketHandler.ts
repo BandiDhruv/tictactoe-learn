@@ -30,7 +30,7 @@ export default function initializeSockets(io: SocketIOServer): void {
             await redisClient.set(`room:${roomId}`, JSON.stringify(roomData));
             socket.join(roomId);
             io.to(roomId).emit("roomJoined", { players: roomData.players });
-            io.to(roomId).emit("gameState", roomData.gameState); // Send initial game state
+            io.to(roomId).emit("gameState", roomData.gameState); 
           } else {
             socket.emit("error", { message: "Room is full" });
           }
@@ -61,6 +61,21 @@ export default function initializeSockets(io: SocketIOServer): void {
         await redisClient.set(`room:${gameId}`, JSON.stringify(roomData));
 
         io.to(gameId).emit("moveMade", { board, currentTurn: nextTurn });
+      } else {
+        socket.emit("error", { message: "Room does not exist" });
+      }
+    });
+
+    socket.on("playAgain", async (gameId) => {
+      const roomDataStr = await redisClient.get(`room:${gameId}`);
+      if (roomDataStr) {
+        const roomData = JSON.parse(roomDataStr);
+        roomData.gameState = {
+          board: [["", "", ""], ["", "", ""], ["", "", ""]],
+          currentTurn: roomData.players[0],
+        };
+        await redisClient.set(`room:${gameId}`, JSON.stringify(roomData));
+        io.to(gameId).emit("gameReset", roomData.gameState);
       } else {
         socket.emit("error", { message: "Room does not exist" });
       }
