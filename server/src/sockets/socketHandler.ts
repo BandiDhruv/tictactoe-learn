@@ -6,31 +6,51 @@ export default function initializeSockets(io: SocketIOServer): void {
     console.log(`User connected: ${socket.id}`);
 
     socket.on("createRoom", async (roomId) => {
-      const roomData = {
-        players: [socket.id],
-        gameState: {
-          board: [["", "", ""], ["", "", ""], ["", "", ""]],
-          currentTurn: socket.id,
-        },
-      };
+      if (socket.id) {
+        const roomData = {
+          players: [socket.id],
+          gameState: {
+            board: [["", "", ""], ["", "", ""], ["", "", ""]],
+            currentTurn: socket.id,
+          },
+          playerCount: 1,
+        };
 
-      await redisClient.set(`room:${roomId}`, JSON.stringify(roomData), { EX: 3600 });
+        await redisClient.set(`room:${roomId}`, JSON.stringify(roomData), { EX: 3600 });
 
-      socket.join(roomId);
-      socket.emit("roomCreated", { roomId });
+        socket.join(roomId);
+        socket.emit("roomCreated", { roomId }); // Add this line
+        io.to(roomId).emit("gameState", {
+          ...roomData.gameState,
+          players: roomData.players,
+          playerCount: roomData.playerCount,
+        });
+      } else {
+        socket.emit("error", { message: "Socket not connected" });
+      }
     });
 
     socket.on("joinRoom", async (roomId) => {
+      if (!socket.id) {
+        socket.emit("error", { message: "Socket not connected" });
+        return;
+      }
+
       const roomDataStr = await redisClient.get(`room:${roomId}`);
       if (roomDataStr) {
         const roomData = JSON.parse(roomDataStr);
         if (!roomData.players.includes(socket.id)) {
           if (roomData.players.length < 2) {
             roomData.players.push(socket.id);
-            await redisClient.set(`room:${roomId}`, JSON.stringify(roomData));
+            roomData.playerCount = 2;
+            await redisClient.set(`room:${roomId}`, JSON.stringify(roomData), { EX: 3600 });
             socket.join(roomId);
-            io.to(roomId).emit("roomJoined", { players: roomData.players });
-            io.to(roomId).emit("gameState", roomData.gameState); 
+            socket.emit("roomJoined", { players: roomData.players });
+            io.to(roomId).emit("gameState", {
+              ...roomData.gameState,
+              players: roomData.players,
+              playerCount: roomData.playerCount,
+            });
           } else {
             socket.emit("error", { message: "Room is full" });
           }
@@ -42,7 +62,26 @@ export default function initializeSockets(io: SocketIOServer): void {
       }
     });
 
+    socket.on("getGameState", async (roomId) => {
+      const roomDataStr = await redisClient.get(`room:${roomId}`);
+      if (roomDataStr) {
+        const roomData = JSON.parse(roomDataStr);
+        socket.emit("gameState", {
+          ...roomData.gameState,
+          players: roomData.players,
+          playerCount: roomData.playerCount,
+        });
+      } else {
+        socket.emit("error", { message: "Room does not exist" });
+      }
+    });
+
     socket.on("makeMove", async ({ gameId, row, col }) => {
+      if (!socket.id) {
+        socket.emit("error", { message: "Socket not connected" });
+        return;
+      }
+
       const roomDataStr = await redisClient.get(`room:${gameId}`);
       if (roomDataStr) {
         const roomData = JSON.parse(roomDataStr);
@@ -58,7 +97,7 @@ export default function initializeSockets(io: SocketIOServer): void {
 
         roomData.gameState.board = board;
         roomData.gameState.currentTurn = nextTurn;
-        await redisClient.set(`room:${gameId}`, JSON.stringify(roomData));
+        await redisClient.set(`room:${gameId}`, JSON.stringify(roomData), { EX: 3600 });
 
         io.to(gameId).emit("moveMade", { board, currentTurn: nextTurn });
       } else {
@@ -74,8 +113,12 @@ export default function initializeSockets(io: SocketIOServer): void {
           board: [["", "", ""], ["", "", ""], ["", "", ""]],
           currentTurn: roomData.players[0],
         };
-        await redisClient.set(`room:${gameId}`, JSON.stringify(roomData));
-        io.to(gameId).emit("gameReset", roomData.gameState);
+        await redisClient.set(`room:${gameId}`, JSON.stringify(roomData), { EX: 3600 });
+        io.to(gameId).emit("gameReset", {
+          ...roomData.gameState,
+          players: roomData.players,
+          playerCount: roomData.playerCount,
+        });
       } else {
         socket.emit("error", { message: "Room does not exist" });
       }
@@ -88,11 +131,12 @@ export default function initializeSockets(io: SocketIOServer): void {
           const roomData = JSON.parse(roomDataStr);
           if (roomData.players.includes(socket.id)) {
             roomData.players = roomData.players.filter((id: string) => id !== socket.id);
+            roomData.playerCount = roomData.players.length;
             if (roomData.players.length === 0) {
               await redisClient.del(key);
             } else {
-              await redisClient.set(key, JSON.stringify(roomData));
-              io.to(key.split(":")[1]).emit("playerLeft", { playerId: socket.id });
+              await redisClient.set(key, JSON.stringify(roomData), { EX: 3600 });
+              io.to(key.split(":")[1]).emit("playerLeft", { playerCount: roomData.playerCount });
             }
             break;
           }
@@ -101,3 +145,4 @@ export default function initializeSockets(io: SocketIOServer): void {
     });
   });
 }
+
