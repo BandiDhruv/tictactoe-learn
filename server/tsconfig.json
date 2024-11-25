@@ -5,7 +5,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node"] // Add this to include Node.js types
   },
   "include": ["./src/**/*"],
   "exclude": ["node_modules"]
