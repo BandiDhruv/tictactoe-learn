@@ -1,9 +1,12 @@
 import { createClient } from "redis";
+import dotenv from "dotenv"
+dotenv.config()
 
+// console.log(process.env.REDIS_PASSWORD)
 const redisClient = createClient({
-    password: 'cKSVUkw25STVpFchvL8tzeadEbtdhoiE',
+    password: process.env.REDIS_PASSWORD,
     socket: {
-        host: 'redis-11351.c305.ap-south-1-1.ec2.redns.redis-cloud.com',
+        host: process.env.REDIS_HOST ,
         port: 11351,
         connectTimeout:50000,
     },
