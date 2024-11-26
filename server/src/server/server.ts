@@ -9,7 +9,7 @@ export function startServer(app: Express): void {
 
   const io = new SocketIOServer(server, {
     cors: {
-      origin: "http://localhost:5173", 
+      origin: ["http://localhost:5173","https://tictactoe-learn.vercel.app/"], 
       methods: ["GET", "POST"],
     },
   });
